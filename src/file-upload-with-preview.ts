@@ -70,6 +70,13 @@ export class FileUploadWithPreview {
       selectedCount: DEFAULT_FILES_SELECTED_TEXT,
     },
   };
+  drag: boolean;
+  offsetX = 0;
+  offsetY = 0;
+  coordX = 0;
+  coordY = 0;
+  targ = null;
+
   /**
    * The `id` you set for the instance
    */
@@ -81,7 +88,12 @@ export class FileUploadWithPreview {
         'No uploadId found. You must initialize file-upload-with-preview with a unique uploadId.',
       );
     }
-
+    this.drag = false;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.coordX = 0;
+    this.coordY = 0;
+    this.targ = null;
     this.uploadId = uploadId;
     this.cachedFileArray = [];
 
@@ -225,6 +237,54 @@ export class FileUploadWithPreview {
         window.dispatchEvent(imageClickedEvent);
       }
     });
+    window.onload = () => {
+      document.addEventListener('mousedown', (e) => this.startDrag(e));
+      document.addEventListener('mouseup', (e) => this.stopDrag());
+    };
+  }
+
+  startDrag(e) {
+    console.log(this);
+    if(e.preventDefault) {
+      e.preventDefault();
+    }
+    this.targ = (e.target ? e.target : e.srcElement) as HTMLDivElement;
+    console.log(this.targ);
+    if (this.targ.matches('.image-preview-item')) {
+      // calculate event X, Y coordinates
+      this.offsetX = e.clientX;
+      this.offsetY = e.clientY;
+      console.log(this.offsetX);
+      // assign default values for top and left properties
+      if (!this.targ.style.left) {
+        this.targ.style.left = '0px'
+      }
+      if (!this.targ.style.top) {
+        this.targ.style.top = '0px'
+      }
+
+      // calculate integer values for top and left
+      // properties
+      this.coordX = parseInt(this.targ.style.left);
+      this.coordY = parseInt(this.targ.style.top);
+      this.drag = true;
+
+      // move div element
+      document.addEventListener('mousemove', (e) => this.dragDiv(e));
+    }
+  }
+
+  dragDiv(e) {
+    if (!this.drag) {return};
+    if (!e) { var e= window.event};
+    // var targ=e.target?e.target:e.srcElement;
+    // move div element
+    this.targ.style.left=this.coordX+e.clientX-this.offsetX+'px';
+    this.targ.style.top=this.coordY+e.clientY-this.offsetY+'px';
+    return false;
+  }
+  stopDrag() {
+    this.drag=false;
   }
 
   addImagesFromPath(presetFiles: PresetFiles) {
