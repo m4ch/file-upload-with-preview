@@ -21,7 +21,7 @@ import {
   ImageMultiItemClickedEvent,
 } from './types/events';
 import { Options, PresetFiles, RequiredOptions } from './types/options';
-import { generateUniqueId } from './utils/file';
+import {generateUniqueId, getFilenameFromPath} from './utils/file';
 
 export class FileUploadWithPreview {
   /**
@@ -228,7 +228,6 @@ export class FileUploadWithPreview {
   }
 
   addImagesFromPath(presetFiles: PresetFiles) {
-    console.log(presetFiles);
     const sortedFiles: File[] = [];
     const promises: Promise<void>[] = [];
     presetFiles.forEach((path, index) =>
@@ -239,15 +238,10 @@ export class FileUploadWithPreview {
             fetch(path, { mode: 'cors' })
               .then((response: Response) => response.blob())
               .then((blob: Blob) => {
-                const possibleFilename = path.split('#')[0]?.split('?')[0]?.split('/')?.pop();
-                let filename = 'preset-file';
-                if (possibleFilename !== undefined) {
-                  filename = possibleFilename;
-                }
+                const filename = getFilenameFromPath(path);
                 const file = new File([blob], filename, {
                   type: blob.type || defaultType,
                 });
-                console.log(file);
                 sortedFiles.splice(index, 0, file);
                 resolve();
               });
@@ -261,7 +255,6 @@ export class FileUploadWithPreview {
       ),
     );
     Promise.all(promises).then(() => {
-      console.log('resolveAll', sortedFiles);
       Object.values(sortedFiles).forEach((value) => {
         this.addFiles([value]);
       });
