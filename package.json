@@ -64,7 +64,7 @@
     "dev": "vite --config vite.config.app.ts",
     "lint": "eslint .",
     "lint:fix": "npm run lint -- --fix",
-    "prettier:format": "prettier 'src/**/*.ts' --write",
+    "prettier:format": "prettier src/**/*.ts --write",
     "test": "jest",
     "typescript:check-types": "tsc --noEmit"
   },
