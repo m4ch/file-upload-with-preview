@@ -33,7 +33,7 @@ export declare class FileUploadWithPreview {
     uploadId: string;
     constructor(uploadId: string, options?: Options);
     bindClickEvents(): void;
-    addImagesFromPath(presetFiles: PresetFiles): Promise<void>;
+    addImagesFromPath(presetFiles: PresetFiles): void;
     addFiles(files: FileList | File[]): void;
     addFileToPreviewPanel(file: File): void;
     replaceFiles(files: File[]): void;
