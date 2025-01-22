@@ -1,6 +1,6 @@
 import { DEFAULT_INITIALIZED_OBJECT_OPTIONS } from '../jest/constants/file';
-import {FileUploadWithPreview} from './index';
-import {getFilenameFromPath} from "./utils/file";
+import { FileUploadWithPreview } from './index';
+import { getFilenameFromPath } from './utils/file';
 
 const TEST_ID = 'myTestImage';
 
@@ -69,4 +69,26 @@ describe('Module Actions', () => {
     expect(getFilenameFromPath(paths[1])).toMatch('photo-1632333650998-8842b63f5cfc');
   });
 
+  it('check if default favorite select works.', () => {
+    const upload = new FileUploadWithPreview(TEST_ID, {
+      defaultSelectedFileIndex: 1,
+      showFavoriteButton: true,
+    });
+
+    const file1 = new Blob([''], { type: 'image/jpeg' });
+    upload.cachedFileArray.push(file1 as File);
+    const file2 = new Blob([''], { type: 'image/jpeg' });
+    upload.cachedFileArray.push(file2 as File);
+
+    expect(upload.selectedFileIndex).toBe(1);
+
+    upload.selectFileAtIndex(0);
+    expect(upload.selectedFileIndex).toBe(0);
+
+    upload.moveFileTo(0, 1);
+    expect(upload.selectedFileIndex).toBe(1);
+
+    upload.selectFileAtIndex(1);
+    expect(upload.selectedFileIndex).toBeNull();
+  });
 });

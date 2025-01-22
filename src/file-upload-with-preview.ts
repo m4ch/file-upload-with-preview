@@ -21,7 +21,7 @@ import {
   ImageMultiItemClickedEvent,
 } from './types/events';
 import { Options, PresetFiles, RequiredOptions } from './types/options';
-import {generateUniqueId, getFilenameFromPath} from './utils/file';
+import { generateUniqueId, getFilenameFromPath } from './utils/file';
 
 export class FileUploadWithPreview {
   /**
@@ -52,6 +52,7 @@ export class FileUploadWithPreview {
   inputVisible: Element;
   options: RequiredOptions = {
     accept: '*',
+    defaultSelectedFileIndex: null,
     images: {
       backgroundImage: DEFAULT_BACKGROUND_IMAGE,
       baseImage: DEFAULT_BASE_IMAGE,
@@ -63,6 +64,8 @@ export class FileUploadWithPreview {
     multiple: false,
     presetFiles: [],
     showDeleteButtonOnImages: true,
+    showFavoriteButton: false,
+    showMoveImageButtons: true,
     text: {
       browse: DEFAULT_BROWSE_TEXT,
       chooseFile: DEFAULT_CHOOSE_FILE_TEXT,
@@ -74,6 +77,10 @@ export class FileUploadWithPreview {
    * The `id` you set for the instance
    */
   uploadId: string;
+  /**
+   * The index of selected/favorite file.
+   */
+  selectedFileIndex: number | null;
 
   constructor(uploadId: string, options: Options = {}) {
     if (!uploadId) {
@@ -86,12 +93,24 @@ export class FileUploadWithPreview {
     this.cachedFileArray = [];
 
     // Base options
-    const { accept, maxFileCount, multiple, presetFiles, showDeleteButtonOnImages } = options;
+    const {
+      accept,
+      maxFileCount,
+      multiple,
+      presetFiles,
+      showDeleteButtonOnImages,
+      showMoveImageButtons,
+      showFavoriteButton,
+      defaultSelectedFileIndex,
+    } = options;
     this.options.showDeleteButtonOnImages = showDeleteButtonOnImages ?? true;
     this.options.maxFileCount = maxFileCount ?? 0;
     this.options.presetFiles = presetFiles ?? [];
     this.options.multiple = multiple ?? false;
     this.options.accept = accept ?? this.options.accept;
+    this.options.showMoveImageButtons = showMoveImageButtons ?? this.options.showMoveImageButtons;
+    this.options.showFavoriteButton = showFavoriteButton ?? this.options.showFavoriteButton;
+    this.selectedFileIndex = defaultSelectedFileIndex ?? this.options.defaultSelectedFileIndex;
 
     // Text options
     const { browse, chooseFile, label, selectedCount } = options.text || {};
@@ -161,6 +180,7 @@ export class FileUploadWithPreview {
     this.addBrowseButton(this.options.text.browse);
     this.imagePreview.style.backgroundImage = `url("${this.options.images.baseImage}")`;
     this.bindClickEvents();
+    this.refreshPreviewPanel();
   }
 
   bindClickEvents() {
@@ -172,6 +192,7 @@ export class FileUploadWithPreview {
         if (files == null) return;
 
         this.addFiles(files);
+        this.refreshPreviewPanel();
 
         // Handle issue with the same file being selected
         // https://stackoverflow.com/a/54633061/8014660
@@ -197,27 +218,36 @@ export class FileUploadWithPreview {
 
     this.imagePreview.addEventListener('click', (e) => {
       const target = e.target as HTMLDivElement;
-
       if (!target) return;
 
+      const fileName =
+        target.getAttribute('data-upload-name') ??
+        target.querySelector('.image-preview-item-clear-icon')?.getAttribute('data-upload-name');
+      const selectedFileIndex = this.cachedFileArray.findIndex(({ name }) => name === fileName);
       if (target.matches('.custom-file-container .image-preview-item-clear-icon')) {
-        const fileName = target.getAttribute('data-upload-name');
-        const selectedFileIndex = this.cachedFileArray.findIndex(({ name }) => name === fileName);
         this.deleteFileAtIndex(selectedFileIndex);
       }
 
-      if (target.matches('.custom-file-container .image-preview-item')) {
-        const clearIcon = target.querySelector('.image-preview-item-clear-icon');
-        const fileName = clearIcon?.getAttribute('data-upload-name');
-        const fileIndex = this.cachedFileArray.findIndex(({ name }) => name === fileName);
+      if (target.matches('.custom-file-container .image-preview-item-favorite-icon')) {
+        this.selectFileAtIndex(selectedFileIndex);
+      }
 
-        if (fileIndex < 0) return;
+      if (target.matches('.custom-file-container .image-preview-item-move-left-icon')) {
+        this.moveFileTo(selectedFileIndex, -1);
+      }
+
+      if (target.matches('.custom-file-container .image-preview-item-move-right-icon')) {
+        this.moveFileTo(selectedFileIndex, 1);
+      }
+
+      if (target.matches('.custom-file-container .image-preview-item')) {
+        if (selectedFileIndex < 0) return;
 
         const eventPayload: ImageMultiItemClickedEvent = {
           detail: {
             cachedFileArray: this.cachedFileArray,
-            file: this.cachedFileArray[fileIndex],
-            index: fileIndex,
+            file: this.cachedFileArray[selectedFileIndex],
+            index: selectedFileIndex,
             uploadId: this.uploadId,
           },
         };
@@ -225,6 +255,37 @@ export class FileUploadWithPreview {
         window.dispatchEvent(imageClickedEvent);
       }
     });
+  }
+
+  selectFileAtIndex(fileIndex: number) {
+    if (fileIndex < 0 || !this.cachedFileArray[fileIndex]) return;
+
+    const targetPreviewItem = document.querySelector(
+      `[data-upload-name="${this.cachedFileArray[fileIndex].name}"]`,
+    );
+    if (fileIndex === this.selectedFileIndex) {
+      targetPreviewItem?.classList.remove('image-preview-item-selected');
+      this.selectedFileIndex = null;
+    } else {
+      this.selectedFileIndex = fileIndex;
+      document
+        .querySelector('.image-preview-item-selected')
+        ?.classList.remove('image-preview-item-selected');
+      targetPreviewItem?.classList.add('image-preview-item-selected');
+    }
+  }
+
+  moveFileTo(fileIndex: number, moveIndex: number) {
+    if (fileIndex + moveIndex < 0 || fileIndex + moveIndex > this.cachedFileArray.length - 1) {
+      return;
+    }
+    const tmp = this.cachedFileArray[fileIndex];
+    this.cachedFileArray[fileIndex] = this.cachedFileArray[fileIndex + moveIndex];
+    this.cachedFileArray[fileIndex + moveIndex] = tmp;
+    if (this.options.showFavoriteButton) {
+      this.selectedFileIndex = (this.selectedFileIndex as number) + moveIndex;
+    }
+    this.refreshPreviewPanel();
   }
 
   addImagesFromPath(presetFiles: PresetFiles) {
@@ -289,7 +350,6 @@ export class FileUploadWithPreview {
       );
 
       this.cachedFileArray.push(fileWithUniqueName);
-      this.addFileToPreviewPanel(fileWithUniqueName);
     });
 
     const eventPayload: ImageAddedEvent = {
@@ -305,21 +365,74 @@ export class FileUploadWithPreview {
     window.dispatchEvent(imagesAddedEvent);
   }
 
-  addFileToPreviewPanel(file: File) {
-    if (this.cachedFileArray.length === 0) {
-      this.inputVisible.innerHTML = this.options.text.chooseFile;
-    } else if (this.cachedFileArray.length === 1) {
-      this.inputVisible.textContent = file.name.split(UNIQUE_ID_IDENTIFIER)[0];
-    } else {
-      this.inputVisible.innerHTML = `${this.cachedFileArray.length} ${this.options.text.selectedCount}`;
-    }
+  addFileToPreviewPanel(file: File, index: number) {
+    return new Promise<string>((resolve) => {
+      if (this.cachedFileArray.length === 0) {
+        this.inputVisible.innerHTML = this.options.text.chooseFile;
+      } else if (this.cachedFileArray.length === 1) {
+        this.inputVisible.textContent = file.name.split(UNIQUE_ID_IDENTIFIER)[0];
+      } else {
+        this.inputVisible.innerHTML = `${this.cachedFileArray.length} ${this.options.text.selectedCount}`;
+      }
 
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
 
-    reader.onload = () => {
-      if (!this.options.multiple) {
-        let image = this.options.images.successFileAltImage;
+      reader.onload = () => {
+        if (!this.options.multiple) {
+          let image = this.options.images.successFileAltImage;
+
+          if (
+            file.type.match('image/png') ||
+            file.type.match('image/jpeg') ||
+            file.type.match('image/webp') ||
+            file.type.match('image/gif')
+          ) {
+            image = `url("${reader.result}")`;
+          } else if (file.type.match('application/pdf')) {
+            image = `url("${this.options.images.successPdfImage}")`;
+          } else if (file.type.match('video/*')) {
+            image = `url("${this.options.images.successVideoImage}")`;
+          }
+
+          this.imagePreview.style.backgroundImage = image;
+
+          return;
+        }
+
+        this.imagePreview.style.backgroundImage = `url("${this.options.images.backgroundImage}")`;
+
+        const imageClearContent = (name: string) => `
+          <span class="image-preview-item-clear">
+            <span class="image-preview-item-clear-icon" data-upload-name="${name}">
+              &times;
+            </span>
+          </span>
+        `;
+        const imageFavoriteContent = (name: string) => `
+          <span class="image-preview-item-favorite">
+            <span class="image-preview-item-favorite-icon" data-upload-name="${name}">
+              ★
+            </span>
+          </span>
+        `;
+        const imageMoveLeftContent = (name: string) => `
+          <span class="image-preview-item-move-left">
+            <span class="image-preview-item-move-left-icon" data-upload-name="${name}">
+              &lt;
+            </span>
+          </span>
+        `;
+        const imageMoveRigthContent = (name: string) => `
+          <span class="image-preview-item-move-right">
+            <span class="image-preview-item-move-right-icon" data-upload-name="${name}">
+              &gt;
+            </span>
+          </span>
+        `;
+
+        let backgroundImage: string | ArrayBuffer | null | undefined =
+          this.options.images.successFileAltImage;
 
         if (
           file.type.match('image/png') ||
@@ -327,54 +440,41 @@ export class FileUploadWithPreview {
           file.type.match('image/webp') ||
           file.type.match('image/gif')
         ) {
-          image = `url("${reader.result}")`;
+          backgroundImage = reader.result;
         } else if (file.type.match('application/pdf')) {
-          image = `url("${this.options.images.successPdfImage}")`;
+          backgroundImage = this.options.images.successPdfImage;
         } else if (file.type.match('video/*')) {
-          image = `url("${this.options.images.successVideoImage}")`;
+          backgroundImage = this.options.images.successVideoImage;
         }
 
-        this.imagePreview.style.backgroundImage = image;
-
-        return;
-      }
-
-      this.imagePreview.style.backgroundImage = `url("${this.options.images.backgroundImage}")`;
-
-      const imageClearContent = (name: string) => `
-        <span class="image-preview-item-clear">
-          <span class="image-preview-item-clear-icon" data-upload-name="${name}">
-            &times;
-          </span>
-        </span>
-      `;
-
-      let backgroundImage: string | ArrayBuffer | null | undefined =
-        this.options.images.successFileAltImage;
-
-      if (
-        file.type.match('image/png') ||
-        file.type.match('image/jpeg') ||
-        file.type.match('image/webp') ||
-        file.type.match('image/gif')
-      ) {
-        backgroundImage = reader.result;
-      } else if (file.type.match('application/pdf')) {
-        backgroundImage = this.options.images.successPdfImage;
-      } else if (file.type.match('video/*')) {
-        backgroundImage = this.options.images.successVideoImage;
-      }
-
-      this.imagePreview.innerHTML += `
-        <div
-          class="image-preview-item"
-          data-upload-name="${file.name}"
-          style="background-image: url('${backgroundImage}'); "
-        >
-          ${this.options.showDeleteButtonOnImages ? imageClearContent(file.name) : undefined}
-        </div>
-      `;
-    };
+        //this.imagePreview.innerHTML +=
+        resolve(`
+          <div
+            class="image-preview-item ${
+              index === this.selectedFileIndex ? 'image-preview-item-selected' : ''
+            }"
+            data-upload-name="${file.name}"
+            style="background-image: url('${backgroundImage}'); "
+          >
+            ${this.options.showDeleteButtonOnImages ? imageClearContent(file.name) : ''}
+            ${
+              this.options.showFavoriteButton && this.options.multiple
+                ? imageFavoriteContent(file.name)
+                : ''
+            }
+            ${
+              this.options.showMoveImageButtons && this.options.multiple
+                ? imageMoveLeftContent(file.name)
+                : ''
+            }
+            ${
+              this.options.showMoveImageButtons && this.options.multiple
+                ? imageMoveRigthContent(file.name)
+                : ''
+            }
+          </div>`);
+      };
+    });
   }
 
   replaceFiles(files: File[]) {
@@ -426,15 +526,22 @@ export class FileUploadWithPreview {
 
     // Use the setTimeout to process images after the MULTI_ITEM_CLEAR_ANIMATION_CLASS is done
     setTimeout(() => {
-      this.imagePreview.innerHTML = '';
-
+      this.imagePreview.innerHTML = 'Loading...';
       // Reset the panel if there are no files
       if (!this.cachedFileArray.length) {
         this.resetPreviewPanel();
         return;
       }
-
-      this.cachedFileArray.forEach((file) => this.addFileToPreviewPanel(file));
+      const promises: Promise<string>[] = [];
+      this.cachedFileArray.forEach((file, index) =>
+        promises.push(this.addFileToPreviewPanel(file, index)),
+      );
+      Promise.all(promises).then((previewInnerHtmls: string[]) => {
+        this.imagePreview.innerHTML = '';
+        previewInnerHtmls.forEach((previewHtml: string) => {
+          this.imagePreview.innerHTML += previewHtml;
+        });
+      });
     }, timeoutWait);
   }
 
