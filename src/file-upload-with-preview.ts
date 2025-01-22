@@ -232,26 +232,21 @@ export class FileUploadWithPreview {
     const promises: Promise<void>[] = [];
     presetFiles.forEach((path, index) =>
       promises.push(
-        new Promise((resolve) => {
+        new Promise(async (resolve) => {
           try {
             const defaultType = 'image/jpeg';
-            const fetchPromise = fetch(path, { mode: 'cors' });
-            fetchPromise.then((response: Response) => {
-              const blobPromise = response.blob();
-              blobPromise.then((blob: Blob) => {
-                const possibleFilename = path.split('#')[0]?.split('?')[0]?.split('/')?.pop();
-                let filename = 'preset-file';
-                if (possibleFilename !== undefined) {
-                  filename = possibleFilename;
-                }
-                const file = new File([blob], filename, {
-                  type: blob.type || defaultType,
-                });
-                sortedFiles.splice(index, 0, file);
-                resolve();
-              });
-              resolve();
+            const response = await fetch(path, { mode: 'cors' });
+            const blob = await response.blob();
+            const possibleFilename = path.split('#')[0]?.split('?')[0]?.split('/')?.pop();
+            let filename = 'preset-file';
+            if (possibleFilename !== undefined) {
+              filename = possibleFilename;
+            }
+            const file = new File([blob], filename, {
+              type: blob.type || defaultType,
             });
+            sortedFiles.splice(index, 0, file);
+            resolve();
           } catch (error) {
             if (error instanceof Error) {
               console.warn(`${error.message.toString()}`);
