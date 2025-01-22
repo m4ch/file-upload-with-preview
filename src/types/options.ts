@@ -99,9 +99,23 @@ export interface Options {
    */
   showDeleteButtonOnImages?: boolean;
   /**
+   * Show a delete button on images in the grid
+   *
+   * @default true
+   */
+  showFavoriteButton?: boolean;
+  /**
    * Configurable text for the library
    */
   text?: Text;
+  /**
+   * Show buttons to move to left or right, in multiple files component.
+   */
+  showMoveImageButtons?: boolean;
+  /**
+   * Default favorite/selected file index from initialization.
+   */
+  defaultSelectedFileIndex?: number | null;
 }
 
 export type RequiredOptions = Required<Options> & {
