@@ -227,23 +227,44 @@ export class FileUploadWithPreview {
     });
   }
 
-  async addImagesFromPath(presetFiles: PresetFiles) {
-    presetFiles.forEach(async (path) => {
-      try {
-        const defaultType = 'image/jpeg';
-        const response = await fetch(path, { mode: 'cors' });
-        const blob = await response.blob();
-        const file = new File([blob], 'preset-file', {
-          type: blob.type || defaultType,
-        });
-        this.addFiles([file]);
-      } catch (error) {
-        if (error instanceof Error) {
-          console.warn(`${error.message.toString()}`);
-        }
-
-        console.warn('Image cannot be added to the cachedFileArray.');
-      }
+  addImagesFromPath(presetFiles: PresetFiles) {
+    const sortedFiles: File[] = [];
+    const promises: Promise<void>[] = [];
+    presetFiles.forEach((path, index) =>
+      promises.push(
+        new Promise((resolve) => {
+          try {
+            const defaultType = 'image/jpeg';
+            const fetchPromise = fetch(path, { mode: 'cors' });
+            fetchPromise.then((response: Response) => {
+              const blobPromise = response.blob();
+              blobPromise.then((blob: Blob) => {
+                const possibleFilename = path.split('#')[0]?.split('?')[0]?.split('/')?.pop();
+                let filename = 'preset-file';
+                if (possibleFilename !== undefined) {
+                  filename = possibleFilename;
+                }
+                const file = new File([blob], filename, {
+                  type: blob.type || defaultType,
+                });
+                sortedFiles.splice(index, 0, file);
+                resolve();
+              });
+              resolve();
+            });
+          } catch (error) {
+            if (error instanceof Error) {
+              console.warn(`${error.message.toString()}`);
+            }
+            console.warn('Image cannot be added to the cachedFileArray.');
+          }
+        }),
+      ),
+    );
+    Promise.all(promises).then(() => {
+      Object.values(sortedFiles).forEach((value) => {
+        this.addFiles([value]);
+      });
     });
   }
 
