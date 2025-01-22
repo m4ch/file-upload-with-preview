@@ -228,25 +228,29 @@ export class FileUploadWithPreview {
   }
 
   addImagesFromPath(presetFiles: PresetFiles) {
+    console.log(presetFiles);
     const sortedFiles: File[] = [];
     const promises: Promise<void>[] = [];
     presetFiles.forEach((path, index) =>
       promises.push(
-        new Promise(async (resolve) => {
+        new Promise((resolve) => {
           try {
             const defaultType = 'image/jpeg';
-            const response = await fetch(path, { mode: 'cors' });
-            const blob = await response.blob();
-            const possibleFilename = path.split('#')[0]?.split('?')[0]?.split('/')?.pop();
-            let filename = 'preset-file';
-            if (possibleFilename !== undefined) {
-              filename = possibleFilename;
-            }
-            const file = new File([blob], filename, {
-              type: blob.type || defaultType,
-            });
-            sortedFiles.splice(index, 0, file);
-            resolve();
+            fetch(path, { mode: 'cors' })
+              .then((response: Response) => response.blob())
+              .then((blob: Blob) => {
+                const possibleFilename = path.split('#')[0]?.split('?')[0]?.split('/')?.pop();
+                let filename = 'preset-file';
+                if (possibleFilename !== undefined) {
+                  filename = possibleFilename;
+                }
+                const file = new File([blob], filename, {
+                  type: blob.type || defaultType,
+                });
+                console.log(file);
+                sortedFiles.splice(index, 0, file);
+                resolve();
+              });
           } catch (error) {
             if (error instanceof Error) {
               console.warn(`${error.message.toString()}`);
@@ -257,6 +261,7 @@ export class FileUploadWithPreview {
       ),
     );
     Promise.all(promises).then(() => {
+      console.log('resolveAll', sortedFiles);
       Object.values(sortedFiles).forEach((value) => {
         this.addFiles([value]);
       });
