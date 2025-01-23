@@ -31,11 +31,17 @@ export declare class FileUploadWithPreview {
      * The `id` you set for the instance
      */
     uploadId: string;
+    /**
+     * The index of selected/favorite file.
+     */
+    selectedFileIndex: number | null;
     constructor(uploadId: string, options?: Options);
     bindClickEvents(): void;
+    selectFileAtIndex(fileIndex: number): void;
+    moveFileTo(fileIndex: number, moveIndex: number): void;
     addImagesFromPath(presetFiles: PresetFiles): void;
     addFiles(files: FileList | File[]): void;
-    addFileToPreviewPanel(file: File): void;
+    addFileToPreviewPanel(file: File, index: number): Promise<string>;
     replaceFiles(files: File[]): void;
     replaceFileAtIndex(file: File, index: number): void;
     deleteFileAtIndex(index: number): void;
